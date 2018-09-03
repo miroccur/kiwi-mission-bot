@@ -1,7 +1,7 @@
 # kiwi-mission-bot
 Automatically start and finish K.I.W.I. character mission and refill energy.
 
-CLI version + UI version
+CLI version + GUI version
 
 # Dependencies
 - Python
