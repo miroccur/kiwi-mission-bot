@@ -5,10 +5,10 @@ import threading
 import time
 import os
 import ast
-#init session
+#init a network session for all requests
 s=requests.session()
 
-#init variables
+#init variables task chain information
 login_state=None
 username=None
 mission=None
@@ -25,19 +25,24 @@ task_status=None
 task_current_star=None
 task_id_cycle=None
 
+#function to retrieve task chain information 
 def get_mission_status():
+	#declaring global variables to store task chain information
 	global ib_status
 	global bs_status
 	global pp_status
 	global es_status
 	global anubis_status
+	#send https request (GET request) to retrieve task chain information, and store them in respective variables
 	ib_status = s.get("https://wf.my.com/minigames/bp4/info/tasks?chain=icebreaker").json()
 	bs_status = s.get("https://wf.my.com/minigames/bp4/info/tasks?chain=shark").json()
 	pp_status = s.get("https://wf.my.com/minigames/bp4/info/tasks?chain=pripyat").json()
 	es_status = s.get("https://wf.my.com/minigames/bp4/info/tasks?chain=volcano").json()
 	anubis_status = s.get("https://wf.my.com/minigames/bp4/info/tasks?chain=anubis").json()
-	
+
+#init dictionaries for task id, task's remaining time, task's status and task's difficulty
 def task_init():
+	#declare global variables to store respective information from task chain
 	global task_id
 	global task_timer
 	global task_status
@@ -45,104 +50,114 @@ def task_init():
 	global task_id_cycle
 	global task_timer_cycle
 	global task_status_cycle
+	#dictionary for task id
 	task_id = {'North':49,'Bear':51,'Water':59,'Rift':60,'Sword':63,'Meat':64,'Hammer':73,'Bite':74,'Wheel':3,'1986':6,'School':7,'Death':15,'Krakatoa':36,'Fogo':42,'Taupo':37,'Ararat':44,'Sphinx':18,'Amun':27,'Cobra':30,'Oasis':23,}
+	#dictionary for task's remaining time
 	task_timer = {'North':ib_status['data']['tasks']['2']['49']['remaining_time'],'Bear':ib_status['data']['tasks']['3']['51']['remaining_time'],'Water':ib_status['data']['tasks']['5']['59']['remaining_time'],'Rift':ib_status['data']['tasks']['6']['60']['remaining_time'],'Sword':bs_status['data']['tasks']['2']['63']['remaining_time'], 'Meat':bs_status['data']['tasks']['2']['64']['remaining_time'],'Hammer':bs_status['data']['tasks']['5']['73']['remaining_time'],'Bite':bs_status['data']['tasks']['5']['74']['remaining_time'],'Wheel':pp_status['data']['tasks']['2']['3']['remaining_time'],'1986':pp_status['data']['tasks']['3']['6']['remaining_time'],'School':pp_status['data']['tasks']['3']['7']['remaining_time'],'Death':pp_status['data']['tasks']['6']['15']['remaining_time'],'Krakatoa':es_status['data']['tasks']['3']['36']['remaining_time'],'Fogo':es_status['data']['tasks']['5']['42']['remaining_time'],'Taupo':es_status['data']['tasks']['3']['37']['remaining_time'],'Ararat':es_status['data']['tasks']['5']['44']['remaining_time'],'Sphinx':anubis_status['data']['tasks']['2']['18']['remaining_time'],'Amun':anubis_status['data']['tasks']['5']['27']['remaining_time'],'Cobra':anubis_status['data']['tasks']['6']['30']['remaining_time'],'Oasis':anubis_status['data']['tasks']['3']['23']['remaining_time']}
+	#dictionary for task's status
 	task_status = {'North':ib_status['data']['tasks']['2']['49']['status'],'Bear':ib_status['data']['tasks']['3']['51']['status'],'Water':ib_status['data']['tasks']['5']['59']['status'],'Rift':ib_status['data']['tasks']['6']['60']['status'],'Sword':bs_status['data']['tasks']['2']['63']['status'], 'Meat':bs_status['data']['tasks']['2']['64']['status'],'Hammer':bs_status['data']['tasks']['5']['73']['status'],'Bite':bs_status['data']['tasks']['5']['74']['status'],'Wheel':pp_status['data']['tasks']['2']['3']['status'],'1986':pp_status['data']['tasks']['3']['6']['status'],'School':pp_status['data']['tasks']['3']['7']['status'],'Death':pp_status['data']['tasks']['6']['15']['status'],'Krakatoa':es_status['data']['tasks']['3']['36']['status'],'Fogo':es_status['data']['tasks']['5']['42']['status'],'Taupo':es_status['data']['tasks']['3']['37']['status'],'Ararat':es_status['data']['tasks']['5']['44']['status'],'Sphinx':anubis_status['data']['tasks']['2']['18']['status'],'Amun':anubis_status['data']['tasks']['5']['27']['status'],'Cobra':anubis_status['data']['tasks']['6']['30']['status'],'Oasis':anubis_status['data']['tasks']['3']['23']['status']}
+	#dictionary for task's difficulty
 	task_current_star = {'North':ib_status['data']['tasks']['2']['49']['current_star'],'Bear':ib_status['data']['tasks']['3']['51']['current_star'],'Water':ib_status['data']['tasks']['5']['59']['current_star'],'Rift':ib_status['data']['tasks']['6']['60']['current_star'],'Sword':bs_status['data']['tasks']['2']['63']['current_star'], 'Meat':bs_status['data']['tasks']['2']['64']['current_star'],'Hammer':bs_status['data']['tasks']['5']['73']['current_star'],'Bite':bs_status['data']['tasks']['5']['74']['current_star'],'Wheel':pp_status['data']['tasks']['2']['3']['current_star'],'1986':pp_status['data']['tasks']['3']['6']['current_star'],'School':pp_status['data']['tasks']['3']['7']['current_star'],'Death':pp_status['data']['tasks']['6']['15']['current_star'],'Krakatoa':es_status['data']['tasks']['3']['36']['current_star'],'Fogo':es_status['data']['tasks']['5']['42']['current_star'],'Taupo':es_status['data']['tasks']['3']['37']['current_star'],'Ararat':es_status['data']['tasks']['5']['44']['current_star'],'Sphinx':anubis_status['data']['tasks']['2']['18']['current_star'],'Amun':anubis_status['data']['tasks']['5']['27']['current_star'],'Cobra':anubis_status['data']['tasks']['6']['30']['current_star'],'Oasis':anubis_status['data']['tasks']['3']['23']['current_star']}
+	#list of tasks in dictionaries' order
 	task_id_cycle = list(task_id)
 
+#check if user's character has athlete bonus
 def isAthlete():
+	#declare the global network session
 	global s
+	#set up the cookies for auth
 	get_mg_token()
+	#send https request (GET method) to retrieve character data
 	profile_json = s.get('https://wf.my.com/minigames/bp4/info/compose?methods=user.info').json()
+	#check whether character has athlete bonus and return the result
 	if "athlete" in profile_json['data']['user']['info']['avatar']['skills']:
 		return True
 	else:
 		return False
 
+#function to refill energy
 def energy_refill():
+	#declare the global network session
 	global s
+	#set up the cookies for auth
 	get_mg_token()
+	#send https request (POST method) to refill energy
 	refill=s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
 
-def del_line(FileName,line):
-	file_session=open(FileName,'r+')
-	file_content=file_session.readlines()
-	file_session.close()
-	file_session=open(FileName,'w')
-	for i in range(len(file_content)):
-		if i+1!=line:
-			file_session.write(file_content[i])
-		elif i==line:
-			continue
-			
+#function to write new line at the start of file			
 def line_prepender(FileName, line):
+	#set up a file session
 	with open(FileName, 'r+') as file_session:
+		#read existing content
 		content = file_session.read()
+		#set the pointer back to start
 		file_session.seek(0, 0)
+		#rewrite the file, add new line then old content
 		file_session.write(str(line) + '\n' + str(content))
 
+#function to start the task
 def mission_starter(task_name,stars):
+	#declare the global network session
 	global s
+	#set up the request data
 	task_info={
 		'task_id':str(task_id[task_name]),
 		'stars':str(stars)
 	}
+	#set up the cookies for auth
 	get_mg_token()
+	#send https request (POST method) to start the task
 	start_task = s.post('https://wf.my.com/minigames/bp4/task/start-task',data=task_info).json()
 
+#function to finish the task
 def mission_ender(task_name,stars):
+	#declare the global network session
 	global s
+	#set up the request data
 	task_ender_info={
 		'task_id':str(task_id[task_name]),
 		'is_paid':0,
 		'stars':str(stars)
 	}
+	#set up the cookies for auth
 	get_mg_token()
+	#send https request (POST method) to end the mission
 	end_task=s.post('https://wf.my.com/minigames/bp4/task/done-task',data=task_ender_info).json()
+	#check if log file exists
+	#exists:
 	if os.path.isfile(os.path.dirname(os.path.realpath(__file__))+'/log'):
+		#if the request was successful
 		if end_task['state']=="Success":
+			#write the response to log
 			line_prepender(os.path.dirname(os.path.realpath(__file__))+'/log',end_task)
+	#does not exist:
 	else:
+		#create file with a session
 		file_creation=open(os.path.dirname(os.path.realpath(__file__))+'/log','w+')
 		file_creation.close()
+		#if the request was successful
 		if end_task['state']=="Success":
+			#write the response to log
 			line_prepender(os.path.dirname(os.path.realpath(__file__))+'/log', end_task)
-		
-def show_reward():
-	reward_list=[]
-	reward_category={}
-	if os.path.isfile(os.path.dirname(os.path.realpath(__file__))+'/log'):
-		log_session=open(os.path.dirname(os.path.realpath(__file__))+'/log',"r")
-		log_content=log_session.readlines()
-		for i in range(len(log_content)):
-			log_content[i]=log_content[i].replace("'","\"")
-			log_json=ast.literal_eval(log_content[i])
-			if log_json["data"]["result"]=="success":
-				reward_list.append(log_json['data']['rewards']['reward']['item']['ext_name'])
-			else:
-				continue
-		for x in range(len(reward_list)):
-			if reward_list[x] not in reward_category:
-				reward_category.update({reward_list[x]:1})
-			else:
-				reward_category.update({reward_list[x]:reward_category[reward_list[x]]+1})
-		reward_category_list=list(reward_category)
-		print("\n\nRewards you got so far:\n")
-		for y in range(len(reward_category)):
-			print(reward_category_list[y]+": "+str(reward_category[reward_category_list[y]])+'\n')
-	else:
-		pass
-		
+
+#function to set up the cookies for auth				
 def get_mg_token():
+	#declare the global network session
 	global s
+	#send https request (GET method) to retrieve profile data
 	get_token = s.get('https://wf.my.com/minigames/user/info').json()
+	#read token from the profile data and set up into the session
+	#the token expires after every http/https POST request
 	s.cookies['mg_token'] = get_token['data']['token']
 
+#function to login to warface account and switch to login confirmation page
 def login(email,password,master):
+	#declare the global network session
 	global s
+	#declare variables to store login status
 	global login_state
 	global username
+	#set up the headers for login request
 	headers = {
 			'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
 			'Accept-Encoding':'gzip, deflate, br',
@@ -158,6 +173,7 @@ def login(email,password,master):
 			'Upgrade-Insecure-Requests':'1',
 			'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'
 			}
+	#set up the login data
 	login_data = {
 			'email':email,
 			'password':password,
@@ -165,27 +181,30 @@ def login(email,password,master):
 			'failure':'https://account.my.com/login/?continue=https%3A%2F%2Faccount.my.com%2Fprofile%2Fuserinfo%2F',
 			'nosavelogin':'0'
 			}
+	#send https (POST and GET method) request to login
 	s.post('https://auth-ac.my.com/auth',headers=headers,data=login_data)
 	s.get('https://auth-ac.my.com/sdc?from=https%3A%2F%2Fwf.my.com')
-	s.get('https://wf.my.com/')  
-	get_token = s.get('https://wf.my.com/minigames/user/info').json()
-	s.cookies['mg_token'] = get_token['data']['token']
-	s.cookies['cur_language'] = 'en'
+	s.get('https://wf.my.com/')
+	#set up the cookies for auth
 	get_mg_token()
+	#check login state and kiwi access
 	user_check_json = s.get('https://wf.my.com/minigames/bp4/info/compose?methods=user.info').json()
+	#login attempt was successful and has kiwi access
 	if user_check_json['data']['user']['info']['status']=='member':
 		login_state='yes'
 		username=user_check_json['data']['user']['info']['username']
 		master.switch_frame(confirm_page)
+	#login attempt was successful but no kiwi access
 	elif user_check_json['data']['user']['info']['status']=='guest':
 		login_state='guest'
 		username=user_check_json['data']['user']['info']['username']
 		master.switch_frame(confirm_page)
+	#login attempt failed
 	elif user_check_json['data']['user']['info']['status']=='no_auth':
 		login_state='no_auth'
 		master.switch_frame(confirm_page)
 
-class kiwi(tk.Tk):
+class main(tk.Tk):
 	global s
 	def __init__(self):
 		tk.Tk.__init__(self)
@@ -202,31 +221,31 @@ class kiwi(tk.Tk):
 		if self._frame is not None:
 			self._frame.destroy()
 		self._frame = new_frame
-		#refresh frame
+		#display new targetted frame
 		self._frame.pack()
 
-#set up login frame
+#set up login page
 class login_page(tk.Frame):
 	def __init__(self, master):
 		tk.Frame.__init__(self, master)
+		#declare the global network session
 		global s
+		#declare global variables to store login status
 		global login_state
 		global username
-		#set up login thread
+		#set up login thread to avoid GUI freeze
 		def login_thread(email,password,master):
 			t=threading._start_new_thread(login,(email,password,master))
 		#set up descriptive page label
-		the_label=tk.Label(self,text="K.I.W.I. Mission Bot",font=("San Francisco",20))
+		the_label=tk.Label(self,text="K.I.W.I. Mission Automator",font=("San Francisco",20))
 		the_label.grid(row=0)
 		nevi_label=tk.Label(self,text="Please login to your Warface account (my.com based)",font=("San Francisco",16))
 		nevi_label.grid(row=1)
-		
 		#set up login info label
 		email_label=tk.Label(self,text="Email or mobile phone number:")
 		email_label.grid(row=2,sticky="W")
 		pw_label=tk.Label(self,text="Password:")
 		pw_label.grid(row=3,sticky="W")
-
 		#set up entry box
 		get_email=tk.StringVar()
 		get_password=tk.StringVar()
@@ -244,12 +263,17 @@ class login_page(tk.Frame):
 		login_button.config(command=lambda:login_thread(get_email.get(),get_password.get(),master))
 		login_button.grid(row=5,column=0,sticky="E",padx=80)
 
+#set up login confirmation page
 class confirm_page(tk.Frame):
 	def __init__(self, master):
 		tk.Frame.__init__(self, master)
+		#declare the global network session
+		global s
+		#declare global variables to show login status
 		global login_state
 		global username
-		global s
+		#check login state and kiwi access
+		#
 		if login_state=='yes':
 			#set up state label
 			the_label=tk.Label(self,text="You are logged in as "+username+".")
@@ -277,7 +301,8 @@ class confirm_page(tk.Frame):
 			return_button=tk.Button(self,text="Retry",width=6)
 			return_button.config(command=lambda:master.switch_frame(login_page))
 			return_button.grid(row=1)
-			
+
+#set up config page1
 class config_page(tk.Frame):
 	def __init__(self, master):
 		global mission
@@ -342,6 +367,7 @@ class config_page(tk.Frame):
 		continue_button.config(command=lambda:config_mission())
 		continue_button.grid(row=6,column=0,columnspan=4)
 
+#set up config page2
 class config2_page(tk.Frame):
 	def __init__(self, master):
 		tk.Frame.__init__(self, master)
@@ -370,6 +396,7 @@ class config2_page(tk.Frame):
 		goback_button.config(command=lambda:master.switch_frame(config_page))
 		goback_button.grid(row=2,column=0,columnspan=3,sticky='W',padx=12)
 		
+#set up config page3
 class config3_page(tk.Frame):
 	def __init__(self, master):
 		tk.Frame.__init__(self, master)
@@ -402,6 +429,7 @@ class config3_page(tk.Frame):
 		goback_button.config(command=lambda:master.switch_frame(config_page))
 		goback_button.grid(row=2,column=0)
 
+#set up dashboard
 class dashboard(tk.Frame):
 	def __init__(self, master):
 		tk.Frame.__init__(self, master)
@@ -543,6 +571,6 @@ class dashboard(tk.Frame):
 		stop_button.grid(row=2,column=1,padx=10,pady=50)
 
 		
-app = kiwi()
-app.title("K.I.W.I. Mission Bot")
+app = main()
+app.title("K.I.W.I. Mission Automator")
 app.mainloop()
