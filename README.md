@@ -14,6 +14,7 @@ CLI version + GUI version
 
 # Known Issues
 - Steam is not yet supported
+- If the automator is used for different accounts, the log file will be mixed up. This will be fixed soon.
 
 # What to expect
 - May or may not come: Steam support.
