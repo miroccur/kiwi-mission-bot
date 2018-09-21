@@ -186,42 +186,48 @@ while True:
 	task_init()
 	profile_json = s.get('https://wf.my.com/minigames/bp4/info/compose?methods=user.info').json()
 	energy_count = int(profile_json['data']['user']['info']['cheerfulness'])
-	if task_timer[mission_name] == 0 and task_status[mission_name]=='open':
-			if ifRefill:
-				if str(mission_level)=="3":
-					if isAthlete():
-						if energy_count<10:
-							get_mg_token()
-							energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
-					else:
-						if energy_count<15:
-							get_mg_token()
-							energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
-				elif str(mission_level)=="2":
-					if isAthlete():
-						if energy_count<7:
-							get_mg_token()
-							energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
-					else:
-						if energy_count<12:
-							get_mg_token()
-							energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
-				elif str(mission_level)=="1":
-					if isAthlete():
-						if energy_count<3:
-							get_mg_token()
-							energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
-					else:
-						if energy_count<8:
-							get_mg_token()
-							energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
-			get_mg_token()
-			mission_starter = s.post('https://wf.my.com/minigames/bp4/task/start-task',data=mission_para)
-			print("\nMission restarted\n")
-	elif task_timer[mission_name] == 0 and task_status[mission_name] == 'progress':
-		get_mg_token()
-		mission_ender = s.post('https://wf.my.com/minigames/bp4/task/done-task',data=mission_finisher_para)
-		print('\nMission finished\n')
-	time.sleep(60)
+	while True
+		try：
+			if task_timer[mission_name] == 0 and task_status[mission_name]=='open':
+					if ifRefill:
+						if str(mission_level)=="3":
+							if isAthlete():
+								if energy_count<10:
+									get_mg_token()
+									energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
+							else:
+								if energy_count<15:
+									get_mg_token()
+									energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
+						elif str(mission_level)=="2":
+							if isAthlete():
+								if energy_count<7:
+									get_mg_token()
+									energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
+							else:
+								if energy_count<12:
+									get_mg_token()
+									energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
+						elif str(mission_level)=="1":
+							if isAthlete():
+								if energy_count<3:
+									get_mg_token()
+									energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
+							else:
+								if energy_count<8:
+									get_mg_token()
+									energy_restoration = s.post('https://wf.my.com/minigames/bp4/user/buy-energy')
+					get_mg_token()
+					mission_starter = s.post('https://wf.my.com/minigames/bp4/task/start-task',data=mission_para)
+					print("\nMission restarted\n")
+			elif task_timer[mission_name] == 0 and task_status[mission_name] == 'progress':
+				get_mg_token()
+				mission_ender = s.post('https://wf.my.com/minigames/bp4/task/done-task',data=mission_finisher_para)
+				print('\nMission finished\n')
+			time.sleep(60)
+		except(KeyError,ValueError,TypeError,requests.exceptions.ChunkedEncodingError,json.decoder.JSONDecodeError,requests.exceptions.ConnectionError):
+			login()
+			pass
+		break
 		
 print ("\nUnexpected exit out of the while.")
