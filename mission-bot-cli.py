@@ -186,7 +186,7 @@ while True:
 	task_init()
 	profile_json = s.get('https://wf.my.com/minigames/bp4/info/compose?methods=user.info').json()
 	energy_count = int(profile_json['data']['user']['info']['cheerfulness'])
-	while True
+	while True:
 		try：
 			if task_timer[mission_name] == 0 and task_status[mission_name]=='open':
 					if ifRefill:
