@@ -1,19 +1,20 @@
 import tkinter as tk
 import requests
 import json
-import threading
+import multiprocessing
 import time
 import os
 import ast
-#init a network session for all requests
-s=requests.session()
+import threading
 
-#init variables task chain information
+s=requests.session()
 login_state=None
 username=None
+the_email=None
+the_password=None
+ifRefill=None
 mission=None
 stars=None
-ifRefill=None
 ib_status=None
 bs_status=None
 pp_status=None
@@ -39,7 +40,6 @@ def get_mission_status():
 	pp_status = s.get("https://wf.my.com/minigames/bp4/info/tasks?chain=pripyat").json()
 	es_status = s.get("https://wf.my.com/minigames/bp4/info/tasks?chain=volcano").json()
 	anubis_status = s.get("https://wf.my.com/minigames/bp4/info/tasks?chain=anubis").json()
-
 #init dictionaries for task id, task's remaining time, task's status and task's difficulty
 def task_init():
 	#declare global variables to store respective information from task chain
@@ -125,20 +125,20 @@ def mission_ender(task_name,stars):
 	end_task=s.post('https://wf.my.com/minigames/bp4/task/done-task',data=task_ender_info).json()
 	#check if log file exists
 	#exists:
-	if os.path.isfile(os.path.dirname(os.path.realpath(__file__))+'/log'):
+	if os.path.isfile(os.path.dirname(os.path.realpath(__file__))+'/'+username+'_log'):
 		#if the request was successful
 		if end_task['state']=="Success":
 			#write the response to log
-			line_prepender(os.path.dirname(os.path.realpath(__file__))+'/log',end_task)
+			line_prepender(os.path.dirname(os.path.realpath(__file__))+'/'+username+'_log', end_task)
 	#does not exist:
 	else:
 		#create file with a session
-		file_creation=open(os.path.dirname(os.path.realpath(__file__))+'/log','w+')
+		file_creation=open(os.path.dirname(os.path.realpath(__file__))+'/'+username+'_log','w+')
 		file_creation.close()
 		#if the request was successful
 		if end_task['state']=="Success":
 			#write the response to log
-			line_prepender(os.path.dirname(os.path.realpath(__file__))+'/log', end_task)
+			line_prepender(os.path.dirname(os.path.realpath(__file__))+'/'+username+'_log', end_task)
 
 #function to set up the cookies for auth				
 def get_mg_token():
@@ -151,7 +151,7 @@ def get_mg_token():
 	s.cookies['mg_token'] = get_token['data']['token']
 
 #function to login to warface account and switch to login confirmation page
-def login(email,password,master):
+def login(email,password):
 	#declare the global network session
 	global s
 	#declare variables to store login status
@@ -173,46 +173,47 @@ def login(email,password,master):
 			'Upgrade-Insecure-Requests':'1',
 			'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'
 			}
-	#set up the login data
-	login_data = {
-			'email':email,
-			'password':password,
-			'continue':'https://account.my.com/login_continue/?continue=https%3A%2F%2Faccount.my.com%2Fprofile%2Fuserinfo%2F',
-			'failure':'https://account.my.com/login/?continue=https%3A%2F%2Faccount.my.com%2Fprofile%2Fuserinfo%2F',
-			'nosavelogin':'0'
-			}
-	#send https (POST and GET method) request to login
-	s.post('https://auth-ac.my.com/auth',headers=headers,data=login_data)
-	s.get('https://auth-ac.my.com/sdc?from=https%3A%2F%2Fwf.my.com')
-	s.get('https://wf.my.com/')
-	#set up the cookies for auth
-	get_mg_token()
-	#check login state and kiwi access
-	user_check_json = s.get('https://wf.my.com/minigames/bp4/info/compose?methods=user.info').json()
-	#login attempt was successful and has kiwi access
-	if user_check_json['data']['user']['info']['status']=='member':
-		login_state='yes'
-		username=user_check_json['data']['user']['info']['username']
-		master.switch_frame(confirm_page)
-	#login attempt was successful but no kiwi access
-	elif user_check_json['data']['user']['info']['status']=='guest':
-		login_state='guest'
-		username=user_check_json['data']['user']['info']['username']
-		master.switch_frame(confirm_page)
-	#login attempt failed
-	elif user_check_json['data']['user']['info']['status']=='no_auth':
-		login_state='no_auth'
-		master.switch_frame(confirm_page)
+	while True:
+		try:
+			#set up the login data
+			login_data = {
+					'email':email,
+					'password':password,
+					'continue':'https://account.my.com/login_continue/?continue=https%3A%2F%2Faccount.my.com%2Fprofile%2Fuserinfo%2F',
+					'failure':'https://account.my.com/login/?continue=https%3A%2F%2Faccount.my.com%2Fprofile%2Fuserinfo%2F',
+					'nosavelogin':'0'
+				}
+			#send https (POST and GET method) request to login
+			s.post('https://auth-ac.my.com/auth',headers=headers,data=login_data)
+			s.get('https://auth-ac.my.com/sdc?from=https%3A%2F%2Fwf.my.com')
+			s.get('https://wf.my.com/')
+			#set up the cookies for auth
+			get_mg_token()
+			#check login state and kiwi access
+			user_check_json = s.get('https://wf.my.com/minigames/bp4/info/compose?methods=user.info').json()
+			#login attempt was successful and has kiwi access
+			if user_check_json['data']['user']['info']['status']=='member':
+				login_state='yes'
+				username=user_check_json['data']['user']['info']['username']
+			#login attempt was successful but no kiwi access
+			elif user_check_json['data']['user']['info']['status']=='guest':
+				login_state='guest'
+				username=user_check_json['data']['user']['info']['username']
+			#login attempt failed
+			elif user_check_json['data']['user']['info']['status']=='no_auth':
+				login_state='no_auth'
+		except(KeyError,ValueError,TypeError,requests.exceptions.ChunkedEncodingError,json.decoder.JSONDecodeError,requests.exceptions.ConnectionError,requests.exceptions.TooManyRedirects):
+			continue
+		break
+
 
 class main(tk.Tk):
-	global s
 	def __init__(self):
 		tk.Tk.__init__(self)
 		#init the frame var
 		self._frame = None
 		#start the app with login page
 		self.switch_frame(login_page)
-	
 	#set up framw switching function
 	def switch_frame(self, frame_class):
 		#destroys current frame and replaces it with a new one
@@ -233,9 +234,26 @@ class login_page(tk.Frame):
 		#declare global variables to store login status
 		global login_state
 		global username
-		#set up login thread to avoid GUI freeze
-		def login_thread(email,password,master):
-			t=threading._start_new_thread(login,(email,password,master))
+		global email
+		global password
+		#set up a function to login and continue to next page
+		def next_page(email,password):
+			#declare the global network session
+			global s
+			#declare global variables to store login status
+			global login_state
+			global username
+			global the_email
+			global the_password
+			#store email and password in global variables
+			the_email=email
+			the_password=password
+			#set up the login process
+			login_process=multiprocessing.Process(target=login(email,password))
+			#login
+			login_process.start()
+			login_process.join()
+			master.switch_frame(confirm_page)
 		#set up descriptive page label
 		the_label=tk.Label(self,text="K.I.W.I. Mission Automator",font=("San Francisco",20))
 		the_label.grid(row=0)
@@ -260,7 +278,7 @@ class login_page(tk.Frame):
 		quit_button.grid(row=5,column=0,sticky="W",padx=80)
 		login_button=tk.Button(self,text="Login")
 		login_button.config(width=8)
-		login_button.config(command=lambda:login_thread(get_email.get(),get_password.get(),master))
+		login_button.config(command=lambda:next_page(get_email.get(),get_password.get()))
 		login_button.grid(row=5,column=0,sticky="E",padx=80)
 
 #set up login confirmation page
@@ -273,7 +291,6 @@ class confirm_page(tk.Frame):
 		global login_state
 		global username
 		#check login state and kiwi access
-		#
 		if login_state=='yes':
 			#set up state label
 			the_label=tk.Label(self,text="You are logged in as "+username+".")
@@ -295,13 +312,12 @@ class confirm_page(tk.Frame):
 			return_button.grid(row=1)
 		else:
 			#set up state label
-			the_label=tk.Label(self,text="The account you logged in, "+username+" does not have K.I.W.I. access.")
+			the_label=tk.Label(self,text="The account you logged in, "+str(username)+" does not have K.I.W.I. access.")
 			the_label.grid(row=0)
 			#set up the button
 			return_button=tk.Button(self,text="Retry",width=6)
 			return_button.config(command=lambda:master.switch_frame(login_page))
 			return_button.grid(row=1)
-
 #set up config page1
 class config_page(tk.Frame):
 	def __init__(self, master):
@@ -429,11 +445,13 @@ class config3_page(tk.Frame):
 		goback_button.config(command=lambda:master.switch_frame(config_page))
 		goback_button.grid(row=2,column=0)
 
-#set up dashboard
 class dashboard(tk.Frame):
-	def __init__(self, master):
-		tk.Frame.__init__(self, master)
+	def __init__(self,master):
+		tk.Frame.__init__(self,master)
 		global s
+		global ifRefill
+		global mission
+		global stars
 		global ib_status
 		global bs_status
 		global pp_status
@@ -444,33 +462,7 @@ class dashboard(tk.Frame):
 		global task_status
 		global task_current_star
 		global task_id_cycle
-		global task_timer_cycle
-		global task_status_cycle
-		global mission
-		global stars
-		global ifRefill
-		#set up the controller
-		controller=True
-		#initial check of mission status
-		get_mission_status()
-		task_init()
-		for counter in range(20):
-			if task_timer[task_id_cycle[counter]] == 0 and task_status[task_id_cycle[counter]] == 'open':
-				pass
-			else:
-				if task_timer[task_id_cycle[counter]] != 0:
-					sleeper = int(task_timer[task_id_cycle[counter]])
-					mission_ender(task_id_cycle[counter], task_current_star[task_id_cycle[counter]])
-					break
-				elif task_timer[task_id_cycle[counter]] == 0 and task_status[task_id_cycle[counter]] == "progress":
-					mission_ender(task_id_cycle[counter],task_current_star[task_id_cycle[counter]])
-					break
-		def start_farming():
-			controller=True
-		def stop_farming():
-			controller=False
-		#set up a thread for farming
-		def farm():
+		def farmStarter():
 			global stars
 			global mission
 			global ifRefill
@@ -487,59 +479,66 @@ class dashboard(tk.Frame):
 			global task_id_cycle
 			global task_timer_cycle
 			global task_status_cycle
-			while controller:
-				get_mission_status()
-				task_init()
-				profile_json = s.get('https://wf.my.com/minigames/bp4/info/compose?methods=user.info').json()
-				energy_count = int(profile_json['data']['user']['info']['cheerfulness'])
-				if task_timer[mission] == 0 and task_status[mission]=='open':
-					if ifRefill:
-						if str(stars)=="3":
-							if isAthlete():
-								if energy_count<10:
-										energy_refill()
-							else:
-								if energy_count<15:
-										energy_refill()
-						elif str(stars)=="2":
-							if isAthlete():
-								if energy_count<7:
-									energy_refill()
-							else:
-								if energy_count<12:
-									energy_refill()
-						elif str(stars)=="1":
-							if isAthlete():
-								if energy_count<3:
-									energy_refill()
-							else:
-								if energy_count<8:
-									energy_refill()
-					mission_starter(mission, stars)
-				elif task_timer[mission] == 0 and task_status[mission] == 'progress':
-					mission_ender(mission, stars)
-				time.sleep(5)
-		#set up a farm thread
-		def farm_thread():
-			t1=threading._start_new_thread(farm,())
-		#init
-		farm_thread()
-		#set up the label
-		the_label=tk.Label(self,text="Dashboard",font=("San Francisco",20))
-		the_label.grid(row=0,columnspan=2)
-		reward_label=tk.Label(self,text="Rewards:",font=("San Francisco",16))
-		reward_label.grid(row=1,column=0,sticky="W",padx=10)
-		#set up a canvas
-		canvas=tk.Canvas(self)
-		canvas.grid(row=2,column=0)
+			while True:
+				try:
+					get_mission_status()
+					task_init()
+					for counter in range(20):
+						if task_timer[task_id_cycle[counter]] == 0 and task_status[task_id_cycle[counter]] == 'open':
+							pass
+						else:
+							if task_timer[task_id_cycle[counter]] != 0:
+								sleeper = int(task_timer[task_id_cycle[counter]])
+								time.sleep(sleeper)
+								mission_ender(task_id_cycle[counter], task_current_star[task_id_cycle[counter]])
+								break
+							elif task_timer[task_id_cycle[counter]] == 0 and task_status[task_id_cycle[counter]] == "progress":
+								mission_ender(task_id_cycle[counter],task_current_star[task_id_cycle[counter]])
+								break
+					while True:
+						get_mission_status()
+						task_init()
+						profile_json = s.get('https://wf.my.com/minigames/bp4/info/compose?methods=user.info').json()
+						energy_count = int(profile_json['data']['user']['info']['cheerfulness'])
+						if task_timer[mission] == 0 and task_status[mission]=='open':
+							if ifRefill:
+								if str(stars)=="3":
+									if isAthlete():
+										if energy_count<10:
+												energy_refill()
+									else:
+										if energy_count<15:
+												energy_refill()
+								elif str(stars)=="2":
+									if isAthlete():
+										if energy_count<7:
+											energy_refill()
+									else:
+										if energy_count<12:
+											energy_refill()
+								elif str(stars)=="1":
+									if isAthlete():
+										if energy_count<3:
+											energy_refill()
+									else:
+										if energy_count<8:
+											energy_refill()
+							mission_starter(mission, stars)
+						elif task_timer[mission] == 0 and task_status[mission] == 'progress':
+							mission_ender(mission, stars)
+						time.sleep(5)
+				except(KeyError,ValueError,TypeError,requests.exceptions.ChunkedEncodingError,json.decoder.JSONDecodeError,requests.exceptions.ConnectionError,requests.exceptions.ProxyError):
+					login(the_email,the_password)
+					continue
+				break
 		#set up canvas updater
 		def canvasUpdater():
 			while True:
 				canvas.delete("all")
 				reward_list=[]
 				reward_category={}
-				if os.path.isfile(os.path.dirname(os.path.realpath(__file__))+'/log'):
-					log_session=open(os.path.dirname(os.path.realpath(__file__))+'/log',"r")
+				if os.path.isfile(os.path.dirname(os.path.realpath(__file__))+'/'+username+'_log'):
+					log_session=open(os.path.dirname(os.path.realpath(__file__))+'/'+username+'_log',"r")
 					log_content=log_session.readlines()
 					for i in range(len(log_content)):
 						log_content[i]=log_content[i].replace("'","\"")
@@ -560,17 +559,56 @@ class dashboard(tk.Frame):
 				else:
 					pass
 				time.sleep(60)
-		#set up a thread to update canvas
-		def canvasThread():
-			t2=threading._start_new_thread(canvasUpdater,())
-		canvasThread()
+		def mission_check(mission,stars):
+			if stars==1:
+				difficulty="1 star"
+			elif stars==2:
+				difficulty="2 stars"
+			elif stars==3:
+				difficulty="3 stars"
+			mission_label=tk.Label(self,text=mission+", "+difficulty,font=("San Francisco",18))
+			mission_label.grid(row=1,sticky="E",columnspan=2,padx=20)
+		#function to check if the program is actively farming
+		def status_check():
+			while True:
+				try:
+					if farm_process.is_alive():
+						status_label=tk.Label(self,text="Status: active",font=("San Francisco",18))
+						status_label.grid(row=1,sticky="W",columnspan=2,padx=20)
+					else:
+						status_label=tk.Label(self,text="Status: inactive",font=("San Francisco",18))
+						status_label.grid(row=1,sticky="W",columnspan=2,padx=20)
+					time.sleep(1)
+				except:
+					continue
+		farm_process=multiprocessing.Process(target=farmStarter)
+		farm_process.start()
+		status_check_process=threading._start_new_thread(status_check,())
+		def goodbye():
+			farm_process.terminate()
+			exit()
+		def reconfig():
+			farm_process.terminate()
+			master.switch_frame(config_page)
+		#init the thread for mission check
+		mission_thread=threading._start_new_thread(mission_check,(mission,stars))
+		#set up the label
+		the_label=tk.Label(self,text="Dashboard",font=("San Francisco",20))
+		the_label.grid(row=0,columnspan=2)
+		reward_label=tk.Label(self,text="Rewards:",font=("San Francisco",16))
+		reward_label.grid(row=2,column=0,sticky="W",padx=10)
+		#set up a canvas
+		canvas=tk.Canvas(self)
+		canvas.grid(row=3,column=0)
+		canvas_thread=threading._start_new_thread(canvasUpdater,())
 		#set up buttons
-		start_button=tk.Button(self,text="Start",command=lambda:start_farming())
-		start_button.grid(row=2,column=1,sticky="N",padx=10,pady=50)
-		stop_button=tk.Button(self,text="Stop",command=lambda:stop_farming())
-		stop_button.grid(row=2,column=1,padx=10,pady=50)
+		start_button=tk.Button(self,text="Reconfigure",command=lambda:reconfig(),width=9)
+		start_button.grid(row=3,column=1,sticky="N",padx=10,pady=50)
+		stop_button=tk.Button(self,text="Stop",command=lambda:goodbye(),width=9)
+		stop_button.grid(row=3,column=1,padx=10,pady=50)
 
-		
+
+
 app = main()
 app.title("K.I.W.I. Mission Automator")
 app.mainloop()
